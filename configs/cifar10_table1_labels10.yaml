@@ -62,3 +62,5 @@ retrain:
   momentum: 0.9
   weight_decay: 0.0005
   cutout_size: 0
+  learned_aug_probability: 0.25
+  learned_aug_input: baseline
