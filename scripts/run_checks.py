@@ -1227,7 +1227,21 @@ def _assert_influence_shapes() -> None:
     assert bool(jnp.all(jnp.isfinite(influence)))
 
 
+def _is_tpu_backend() -> bool:
+    """Return whether the current JAX process is running on a TPU backend."""
+    return any(device.platform == "tpu" for device in jax.devices())
+
+
+def _s_test_check_tolerances() -> tuple[float, float, float]:
+    """Return residual, rtol, and atol tolerances for the dense-solve check."""
+    if _is_tpu_backend():
+        # TPU reductions/HVPs can be slightly noisier than CPU/GPU float32 here.
+        return 5e-3, 5e-3, 5e-4
+    return 1e-4, 1e-3, 1e-4
+
+
 def _assert_s_test_matches_dense_solve() -> None:
+    """Check CG iHVP against an explicit dense linear solve."""
     rng = jax.random.PRNGKey(7)
     train_features = jax.random.normal(rng, (5, 3))
     val_features = jax.random.normal(jax.random.PRNGKey(8), (4, 3))
@@ -1257,7 +1271,11 @@ def _assert_s_test_matches_dense_solve() -> None:
         s_test,
         damping=damping,
     )
-    assert float(residual) < 1e-4
+    residual_tolerance, dense_rtol, dense_atol = _s_test_check_tolerances()
+    assert float(residual) < residual_tolerance, (
+        f"s_test residual {float(residual):.6g} exceeds tolerance "
+        f"{residual_tolerance:.6g} on backend {jax.default_backend()}"
+    )
 
     engine_state = ClassifierTrainState.create(
         apply_fn=lambda *args, **kwargs: None,
@@ -1273,7 +1291,10 @@ def _assert_s_test_matches_dense_solve() -> None:
         s_test,
         damping=damping,
     )
-    assert float(engine_residual) < 1e-4
+    assert float(engine_residual) < residual_tolerance, (
+        f"engine s_test residual {float(engine_residual):.6g} exceeds tolerance "
+        f"{residual_tolerance:.6g} on backend {jax.default_backend()}"
+    )
 
     flat_params, unravel = ravel_pytree(classifier_params)
     flat_s_test, _ = ravel_pytree(s_test)
@@ -1293,7 +1314,12 @@ def _assert_s_test_matches_dense_solve() -> None:
         hessian + damping * jnp.eye(hessian.shape[0], dtype=hessian.dtype),
         flat_val_grad,
     )
-    np.testing.assert_allclose(np.asarray(flat_s_test), np.asarray(exact), rtol=1e-3, atol=1e-4)
+    np.testing.assert_allclose(
+        np.asarray(flat_s_test),
+        np.asarray(exact),
+        rtol=dense_rtol,
+        atol=dense_atol,
+    )
 
 
 def main() -> None:
