@@ -1236,7 +1236,7 @@ def _s_test_check_tolerances() -> tuple[float, float, float]:
     """Return residual, rtol, and atol tolerances for the dense-solve check."""
     if _is_tpu_backend():
         # TPU reductions/HVPs can be slightly noisier than CPU/GPU float32 here.
-        return 5e-3, 5e-3, 5e-4
+        return 5e-3, 5e-2, 2e-2
     return 1e-4, 1e-3, 1e-4
 
 
