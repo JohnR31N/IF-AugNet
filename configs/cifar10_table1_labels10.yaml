@@ -1,0 +1,64 @@
+seed: 0
+log_every: 100
+eval_batches: 157
+checkpoint_dir: runs/cifar10_table1_labels10
+checkpoint_every_steps: 500
+
+data:
+  name: cifar10
+  source: direct
+  data_dir: .data/tfds
+  raw_data_dir: .data/cifar_raw
+  download_timeout_seconds: 120
+  hyperval_size: 5000
+  train_labels_per_class: 10
+  normalize: true
+  mean: [0.4914, 0.4822, 0.4465]
+  std: [0.2470, 0.2435, 0.2616]
+
+classifier:
+  backbone: resnet56
+  num_classes: 10
+  width_multiplier: 1
+  batch_size: 64
+  epochs: 300
+  learning_rate: 0.1
+  lr_decay_epochs: [150, 225]
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0005
+  cutout_size: 0
+
+pretrain:
+  batch_size: 64
+  steps: 2000
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  cutout_size: 0
+  image_loss_weight: 1.0
+  feature_loss_weight: 1.0
+  identity_l2_weight: 0.001
+
+augnet:
+  batch_size: 64
+  steps: 10000
+  learning_rate: 0.01
+  tau_dim: 128
+  tau_dropout: 0.5
+  damping: 0.01
+  cg_iters: 50
+  precompute_s_test: true
+  s_test_batches: 16
+  identity_l2_weight: 0.001
+
+retrain:
+  epochs: 300
+  learning_rate: 0.1
+  lr_decay_epochs: [150, 225]
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0005
+  cutout_size: 0

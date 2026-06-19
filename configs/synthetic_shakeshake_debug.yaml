@@ -1,0 +1,61 @@
+seed: 0
+log_every: 1
+eval_batches: 1
+checkpoint_dir: runs/synthetic_shakeshake_debug
+checkpoint_every_steps: 1
+
+data:
+  name: synthetic_cifar
+  train_size: 16
+  hyperval_size: 8
+  test_size: 8
+  num_classes: 10
+  normalize: false
+
+classifier:
+  backbone: shake_shake
+  depth: 8
+  base_width: 8
+  num_classes: 10
+  batch_size: 8
+  epochs: 1
+  learning_rate: 0.01
+  lr_decay_epochs: []
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0005
+  cutout_size: 0
+
+pretrain:
+  batch_size: 8
+  steps: 1
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  cutout_size: 0
+  image_loss_weight: 1.0
+  feature_loss_weight: 1.0
+  identity_l2_weight: 0.001
+
+augnet:
+  batch_size: 8
+  steps: 1
+  learning_rate: 0.001
+  tau_dim: 128
+  tau_dropout: 0.5
+  damping: 0.01
+  cg_iters: 3
+  precompute_s_test: true
+  s_test_batches: 1
+  identity_l2_weight: 0.001
+
+retrain:
+  epochs: 1
+  learning_rate: 0.01
+  lr_decay_epochs: []
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0005
+  cutout_size: 0

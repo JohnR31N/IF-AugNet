@@ -1,0 +1,70 @@
+seed: 0
+log_every: 100
+eval_batches: 13
+checkpoint_dir: runs/imagenet_resnet200_paper
+checkpoint_every_steps: 1000
+
+data:
+  name: imagenet
+  source: tfds
+  data_dir: .data/tfds
+  image_size: 224
+  hyperval_size: 50000
+  baseline_preprocessing: inception
+  normalize: true
+  mean: [0.5, 0.5, 0.5]
+  std: [0.5, 0.5, 0.5]
+
+classifier:
+  backbone: resnet200
+  num_classes: 1000
+  batch_size: 4096
+  epochs: 270
+  learning_rate: 1.6
+  lr_decay_epochs: [90, 180, 240]
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+  baseline_augmentation: false
+  cutout_size: 0
+
+pretrain:
+  batch_size: 256
+  steps: 10000
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  baseline_augmentation: false
+  cutout_size: 0
+  image_loss_weight: 1.0
+  feature_loss_weight: 1.0
+  identity_l2_weight: 0.001
+  progressive_image_sizes: [32, 64, 128, 224]
+  progressive_boundaries: [2500, 5000, 7500]
+
+augnet:
+  batch_size: 256
+  steps: 20000
+  learning_rate: 0.001
+  tau_dim: 128
+  tau_dropout: 0.5
+  encoder_widths: [32, 64, 128, 256, 256, 512, 512, 512]
+  decoder_base_width: 512
+  decoder_widths: [512, 512, 256, 256, 128, 64, 32, 16]
+  damping: 0.01
+  cg_iters: 50
+  precompute_s_test: true
+  s_test_batches: 16
+  identity_l2_weight: 0.001
+
+retrain:
+  epochs: 270
+  learning_rate: 1.6
+  lr_decay_epochs: [90, 180, 240]
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+  baseline_augmentation: false
+  cutout_size: 0

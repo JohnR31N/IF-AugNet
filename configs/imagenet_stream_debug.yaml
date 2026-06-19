@@ -1,0 +1,79 @@
+seed: 0
+log_every: 1
+eval_batches: 1
+checkpoint_dir: runs/imagenet_stream_debug
+checkpoint_every_steps: 1
+
+data:
+  name: imagenet
+  source: tfds
+  data_dir: .data/tfds
+  image_size: 64
+  hyperval_size: 2
+  train_examples: 4
+  validation_examples: 2
+  train_split: train[2:6]
+  hyperval_split: train[:2]
+  validation_split: validation[:2]
+  shuffle_buffer: 8
+  baseline_preprocessing: inception
+  normalize: true
+  mean: [0.5, 0.5, 0.5]
+  std: [0.5, 0.5, 0.5]
+
+classifier:
+  backbone: imagenet_resnet
+  num_classes: 1000
+  stage_sizes: [1, 1, 1, 1]
+  widths: [8, 16, 32, 64]
+  stem_width: 8
+  batch_size: 2
+  epochs: 1
+  learning_rate: 0.01
+  lr_decay_epochs: []
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+  baseline_augmentation: false
+  cutout_size: 0
+
+pretrain:
+  batch_size: 2
+  steps: 1
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  baseline_augmentation: false
+  cutout_size: 0
+  image_loss_weight: 1.0
+  feature_loss_weight: 1.0
+  identity_l2_weight: 0.001
+  progressive_image_sizes: [32, 64]
+  progressive_boundaries: [1]
+
+augnet:
+  batch_size: 2
+  steps: 1
+  learning_rate: 0.001
+  tau_dim: 128
+  tau_dropout: 0.5
+  encoder_widths: [8, 16, 32, 32, 64, 64, 64, 64]
+  decoder_base_width: 64
+  decoder_widths: [64, 64, 64, 32, 32, 16, 16, 8]
+  damping: 0.01
+  cg_iters: 2
+  precompute_s_test: true
+  s_test_batches: 1
+  identity_l2_weight: 0.001
+
+retrain:
+  epochs: 1
+  learning_rate: 0.01
+  lr_decay_epochs: []
+  lr_decay_factor: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+  baseline_augmentation: false
+  cutout_size: 0

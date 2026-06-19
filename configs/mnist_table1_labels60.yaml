@@ -1,0 +1,84 @@
+seed: 0
+log_every: 100
+eval_batches: 79
+checkpoint_dir: runs/mnist_table1_labels60_paper_aligned
+checkpoint_every_steps: 500
+
+data:
+  name: mnist
+  source: direct
+  raw_data_dir: .data/mnist_raw
+  download_timeout_seconds: 120
+  hyperval_size: 5000
+  train_labels_per_class: 60
+  normalize: true
+  mean: [0.1307]
+  std: [0.3081]
+
+classifier:
+  backbone: mnist_cnn
+  num_classes: 10
+  batch_size: 128
+  epochs: 100
+  learning_rate: 0.001
+  lr_decay_epochs: []
+  lr_decay_factor: 0.1
+  optimizer: adam
+  momentum: 0.9
+  weight_decay: 0.0
+  gradient_clip_norm: 1.0
+  zero_nonfinite_grads: true
+  baseline_augmentation: crop
+  cutout_size: 0
+
+pretrain:
+  batch_size: 128
+  steps: 2000
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  augnet_learning_rate: 0.0002
+  augnet_adam_beta1: 0.5
+  augnet_adam_beta2: 0.999
+  baseline_augmentation: crop
+  cutout_size: 0
+  image_loss_weight: 1.0
+  feature_loss_weight: 1.0
+  identity_l2_weight: 0.001
+
+augnet:
+  batch_size: 128
+  steps: 5000
+  learning_rate: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.99
+  tau_dim: 128
+  tau_dropout: 0.5
+  spatial_scale: 0.2
+  use_appearance: false
+  encoder_widths: [16, 32, 64]
+  decoder_base_width: 64
+  decoder_widths: [32, 16]
+  damping: 0.01
+  cg_iters: 50
+  precompute_s_test: true
+  s_test_batches: 8
+  identity_l2_weight: 0.001
+  influence_clip_value: 10.0
+  label_preservation_weight: 0.2
+
+retrain:
+  epochs: 100
+  learning_rate: 0.001
+  lr_decay_epochs: []
+  lr_decay_factor: 0.1
+  optimizer: adam
+  momentum: 0.9
+  weight_decay: 0.0
+  gradient_clip_norm: 1.0
+  zero_nonfinite_grads: true
+  baseline_augmentation: crop
+  cutout_size: 0
+  learned_aug_probability: 0.25
+  learned_aug_input: baseline
+  recalibrate_batch_stats_batches: 50

@@ -1,0 +1,140 @@
+source:
+  paper: "Learning Augmentation Network via Influence Functions, CVPR 2020"
+  url: "https://openaccess.thecvf.com/content_CVPR_2020/papers/Lee_Learning_Augmentation_Network_via_Influence_Functions_CVPR_2020_paper.pdf"
+  note: "Targets are the paper's Proposed method results. Error rates are lower-is-better; ImageNet accuracies are higher-is-better. The paper reports CIFAR results averaged over 5 runs."
+
+targets:
+  - id: table1_mnist_1pct_error
+    table: 1
+    setting: "MNIST 1%, 4-layer CNN"
+    config: configs/mnist_table1_labels60.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 3.1
+    units: percent
+
+  - id: table1_mnist_10pct_error
+    table: 1
+    setting: "MNIST 10%, 4-layer CNN"
+    config: configs/mnist_table1_labels600.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 0.8
+    units: percent
+
+  - id: table1_cifar10_10_labels_error
+    table: 1
+    setting: "CIFAR-10, 10 labels/class, ResNet-56"
+    config: configs/cifar10_table1_labels10.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 17.7
+    units: percent
+
+  - id: table1_cifar10_100_labels_error
+    table: 1
+    setting: "CIFAR-10, 100 labels/class, ResNet-56"
+    config: configs/cifar10_table1_labels100.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 5.2
+    units: percent
+
+  - id: table1_cifar100_100_labels_error
+    table: 1
+    setting: "CIFAR-100, 100 labels/class, ResNet-56"
+    config: configs/cifar100_table1_labels100.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 29.6
+    units: percent
+
+  - id: table2_cifar10_wrn28_10_error
+    table: 2
+    setting: "CIFAR-10, Wide-ResNet-28-10"
+    config: configs/cifar10_table2_wrn28_10.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 2.8
+    units: percent
+
+  - id: table2_cifar10_shakeshake26_2x96d_error
+    table: 2
+    setting: "CIFAR-10, Shake-Shake (26 2x96d)"
+    config: configs/cifar10_table2_shakeshake26_2x96d.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 2.1
+    units: percent
+
+  - id: table2_cifar10_pyramidnet_shakedrop_error
+    table: 2
+    setting: "CIFAR-10, PyramidNet+ShakeDrop"
+    config: configs/cifar10_table2_pyramidnet_shakedrop.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 1.7
+    units: percent
+
+  - id: table2_cifar100_wrn28_10_error
+    table: 2
+    setting: "CIFAR-100, Wide-ResNet-28-10"
+    config: configs/cifar100_table2_wrn28_10.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 17.3
+    units: percent
+
+  - id: table2_cifar100_shakeshake26_2x96d_error
+    table: 2
+    setting: "CIFAR-100, Shake-Shake (26 2x96d)"
+    config: configs/cifar100_table2_shakeshake26_2x96d.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 14.6
+    units: percent
+
+  - id: table2_cifar100_pyramidnet_shakedrop_error
+    table: 2
+    setting: "CIFAR-100, PyramidNet+ShakeDrop"
+    config: configs/cifar100_table2_pyramidnet_shakedrop.yaml
+    metric: augnet_error_percent
+    direction: max
+    target: 11.9
+    units: percent
+
+  - id: table3_imagenet_resnet50_top1
+    table: 3
+    setting: "ImageNet, ResNet-50, Top-1"
+    config: configs/imagenet_resnet50_paper.yaml
+    metric: augnet_top1_percent
+    direction: min
+    target: 77.1
+    units: percent
+
+  - id: table3_imagenet_resnet50_top5
+    table: 3
+    setting: "ImageNet, ResNet-50, Top-5"
+    config: configs/imagenet_resnet50_paper.yaml
+    metric: augnet_top5_percent
+    direction: min
+    target: 93.4
+    units: percent
+
+  - id: table3_imagenet_resnet200_top1
+    table: 3
+    setting: "ImageNet, ResNet-200, Top-1"
+    config: configs/imagenet_resnet200_paper.yaml
+    metric: augnet_top1_percent
+    direction: min
+    target: 79.0
+    units: percent
+
+  - id: table3_imagenet_resnet200_top5
+    table: 3
+    setting: "ImageNet, ResNet-200, Top-5"
+    config: configs/imagenet_resnet200_paper.yaml
+    metric: augnet_top5_percent
+    direction: min
+    target: 94.6
+    units: percent

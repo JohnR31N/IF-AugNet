@@ -150,6 +150,7 @@ activemq-data/
 # Environments
 .env
 .envrc
+.ifaugnet/
 .venv
 env/
 venv/
@@ -205,6 +206,10 @@ tempCodeRunnerFile.py
 
 # Ruff stuff:
 .ruff_cache/
+
+# Experiment artifacts
+.data/
+runs/
 
 # PyPI configuration file
 .pypirc
