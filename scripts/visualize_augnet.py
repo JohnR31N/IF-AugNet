@@ -60,6 +60,7 @@ def main() -> None:
     parser.add_argument("--split", choices=("train", "hyperval", "test"), default="train")
     parser.add_argument("--num-images", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--allow-random-init", action="store_true")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -91,6 +92,11 @@ def main() -> None:
     checkpoint = args.checkpoint or str(Path(cfg["checkpoint_dir"]) / "augnet.msgpack")
     if Path(checkpoint).exists():
         state = restore_state(checkpoint, state)
+    elif not args.allow_random_init:
+        raise FileNotFoundError(
+            f"AugNet checkpoint not found: {checkpoint}. "
+            "Pass --checkpoint explicitly or use --allow-random-init for an untrained preview."
+        )
 
     rng = jax.random.PRNGKey(args.seed + 1)
     augmented = augnet.apply(

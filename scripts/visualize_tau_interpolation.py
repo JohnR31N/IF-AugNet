@@ -90,6 +90,7 @@ def main() -> None:
     parser.add_argument("--target-index", type=int, default=1)
     parser.add_argument("--steps", type=int, default=10)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--allow-random-init", action="store_true")
     args = parser.parse_args()
 
     if args.steps < 2:
@@ -125,6 +126,11 @@ def main() -> None:
     checkpoint = args.checkpoint or str(Path(cfg["checkpoint_dir"]) / "augnet.msgpack")
     if Path(checkpoint).exists():
         state = restore_state(checkpoint, state)
+    elif not args.allow_random_init:
+        raise FileNotFoundError(
+            f"AugNet checkpoint not found: {checkpoint}. "
+            "Pass --checkpoint explicitly or use --allow-random-init for an untrained preview."
+        )
 
     _, source_aux = augnet.apply(
         {"params": state.params},
