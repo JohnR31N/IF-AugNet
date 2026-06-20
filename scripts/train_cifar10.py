@@ -14,6 +14,8 @@ import optax
 from classification_network import (
     ImageNetResNet,
     MnistConvNet,
+    PreActResNet,
+    PreActResNet18,
     PyramidNet272ShakeDrop,
     PyramidNetShakeDrop,
     ResNet18,
@@ -87,6 +89,18 @@ def build_classifier(config: Dict) -> object:
         return ResNet18(
             num_classes=config["num_classes"],
             width_multiplier=config["width_multiplier"],
+        )
+    if backbone in ("preact_resnet18", "preactresnet18"):
+        return PreActResNet18(
+            num_classes=config["num_classes"],
+            width_multiplier=config.get("width_multiplier", 1),
+        )
+    if backbone in ("preact_resnet", "preactresnet"):
+        return PreActResNet(
+            stage_sizes=tuple(config.get("stage_sizes", (2, 2, 2, 2))),
+            widths=tuple(config.get("widths", (64, 128, 256, 512))),
+            num_classes=config["num_classes"],
+            width_multiplier=config.get("width_multiplier", 1),
         )
     if backbone == "resnet56":
         return ResNet56(

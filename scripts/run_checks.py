@@ -23,6 +23,7 @@ from classification_network import (
     ClassifierTrainState,
     ImageNetResNet,
     MnistConvNet,
+    PreActResNet18,
     PyramidNetShakeDrop,
     ShakeShakeResNet,
     WideResNet,
@@ -1122,6 +1123,34 @@ def _assert_wide_resnet_interface() -> None:
     assert variables["params"]["classifier"]["kernel"].shape == (128, 10)
 
 
+def _assert_preact_resnet18_interface() -> None:
+    model = PreActResNet18(num_classes=10, width_multiplier=1)
+    variables = model.init(
+        jax.random.PRNGKey(0),
+        jnp.ones((2, 32, 32, 3), dtype=jnp.float32),
+        train=True,
+    )
+    (features, logits), updates = model.apply(
+        variables,
+        jnp.ones((2, 32, 32, 3), dtype=jnp.float32),
+        train=True,
+        return_features=True,
+        mutable=["batch_stats"],
+    )
+    eval_features, eval_logits = model.apply(
+        variables,
+        jnp.ones((2, 32, 32, 3), dtype=jnp.float32),
+        train=False,
+        return_features=True,
+    )
+    assert features.shape == (2, 512)
+    assert logits.shape == (2, 10)
+    assert eval_features.shape == (2, 512)
+    assert eval_logits.shape == (2, 10)
+    assert "batch_stats" in updates
+    assert variables["params"]["classifier"]["kernel"].shape == (512, 10)
+
+
 def _assert_shake_shake_interface() -> None:
     model = ShakeShakeResNet(depth=8, base_width=8, num_classes=10)
     variables = model.init(
@@ -1353,6 +1382,7 @@ def main() -> None:
         ("imagenet_resnet_interface", _assert_imagenet_resnet_interface),
         ("top5_eval_metric", _assert_top5_eval_metric),
         ("wide_resnet_interface", _assert_wide_resnet_interface),
+        ("preact_resnet18_interface", _assert_preact_resnet18_interface),
         ("shake_shake_interface", _assert_shake_shake_interface),
         ("pyramidnet_shakedrop_interface", _assert_pyramidnet_shakedrop_interface),
         ("influence_shapes", _assert_influence_shapes),
