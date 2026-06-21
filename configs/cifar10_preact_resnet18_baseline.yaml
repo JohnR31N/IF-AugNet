@@ -7,8 +7,8 @@ checkpoint_every_steps: 500
 data:
   name: cifar10
   source: direct
-  data_dir: .data/tfds
-  raw_data_dir: .data/cifar_raw
+  data_dir: ./data
+  raw_data_dir: ./data
   download_timeout_seconds: 120
   hyperval_size: 5000
   normalize: true
@@ -22,12 +22,14 @@ classifier:
   batch_size: 128
   epochs: 200
   learning_rate: 0.1
-  lr_decay_epochs: [60, 120, 160]
-  lr_decay_factor: 0.2
+  lr_schedule: cosine
+  min_learning_rate: 0.0
+  lr_decay_epochs: [100, 150]
+  lr_decay_rate: 0.1
   optimizer: sgd
   momentum: 0.9
   weight_decay: 0.0005
-  cutout_size: 16
+  cutout_size: 0
 
 pretrain:
   batch_size: 128
@@ -35,7 +37,7 @@ pretrain:
   learning_rate: 0.0002
   beta1: 0.5
   beta2: 0.999
-  cutout_size: 16
+  cutout_size: 0
   image_loss_weight: 1.0
   feature_loss_weight: 1.0
   identity_l2_weight: 0.001
@@ -55,11 +57,13 @@ augnet:
 retrain:
   epochs: 200
   learning_rate: 0.1
-  lr_decay_epochs: [60, 120, 160]
-  lr_decay_factor: 0.2
+  lr_schedule: cosine
+  min_learning_rate: 0.0
+  lr_decay_epochs: [100, 150]
+  lr_decay_rate: 0.1
   optimizer: sgd
   momentum: 0.9
   weight_decay: 0.0005
-  cutout_size: 16
+  cutout_size: 0
   learned_aug_probability: 0.0
   learned_aug_input: baseline

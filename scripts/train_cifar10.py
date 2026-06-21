@@ -224,11 +224,26 @@ def pretrain_augnet_optimizer_config(aug_cfg: Dict, pretrain_cfg: Dict) -> Dict:
 
 def build_learning_rate(config: Dict, steps_per_epoch: int):
     learning_rate = config["learning_rate"]
+    schedule = config.get("lr_schedule", "piecewise")
+    if schedule == "cosine":
+        decay_steps = int(config["epochs"] * steps_per_epoch)
+        min_learning_rate = float(config.get("min_learning_rate", 0.0))
+        alpha = min_learning_rate / float(learning_rate) if learning_rate else 0.0
+        return optax.cosine_decay_schedule(
+            init_value=learning_rate,
+            decay_steps=max(1, decay_steps),
+            alpha=alpha,
+        )
+    if schedule in ("constant", "none"):
+        return learning_rate
+    if schedule != "piecewise":
+        raise ValueError(f"Unknown lr_schedule: {schedule}")
+
     decay_epochs = config.get("lr_decay_epochs", [])
     if not decay_epochs:
         return learning_rate
 
-    decay_factor = config.get("lr_decay_factor", 0.1)
+    decay_factor = config.get("lr_decay_factor", config.get("lr_decay_rate", 0.1))
     boundaries_and_scales = {
         int(epoch * steps_per_epoch): decay_factor for epoch in decay_epochs
     }

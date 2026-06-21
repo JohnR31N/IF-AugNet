@@ -59,6 +59,7 @@ from transformation_network import (
 )
 from classification_network.engine import _kernel_decay_mask
 from scripts.train_cifar10 import (
+    build_learning_rate,
     evaluate,
     progressive_image_size_for_step,
     steps_per_epoch,
@@ -345,6 +346,22 @@ def _assert_progressive_schedule() -> None:
     assert progressive_image_size_for_step(config, 20, 224) == 128
     assert progressive_image_size_for_step(config, 30, 224) is None
     assert progressive_image_size_for_step({}, 0, 224) is None
+
+
+def _assert_cosine_lr_schedule() -> None:
+    schedule = build_learning_rate(
+        {
+            "learning_rate": 0.1,
+            "lr_schedule": "cosine",
+            "min_learning_rate": 0.0,
+            "epochs": 2,
+        },
+        steps_per_epoch=5,
+    )
+    np.testing.assert_allclose(float(schedule(0)), 0.1, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(float(schedule(10)), 0.0, rtol=1e-6, atol=1e-6)
+    mid_value = float(schedule(5))
+    assert 0.0 < mid_value < 0.1
 
 
 def _assert_training_epoch_coverage() -> None:
@@ -1361,6 +1378,7 @@ def main() -> None:
         ("imagenet_stream_info", _assert_imagenet_stream_info),
         ("imagenet_dry_run_no_side_effects", _assert_imagenet_dry_run_no_side_effects),
         ("progressive_schedule", _assert_progressive_schedule),
+        ("cosine_lr_schedule", _assert_cosine_lr_schedule),
         ("training_epoch_coverage", _assert_training_epoch_coverage),
         ("weight_decay_mask", _assert_weight_decay_mask),
         ("iterator_resume", _assert_iterator_resume),
