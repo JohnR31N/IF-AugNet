@@ -1,0 +1,74 @@
+seed: 2
+log_every: 100
+eval_batches: 79
+checkpoint_dir: runs/cifar10_ifaugnet_preact_resnet18_atmix_seed2
+checkpoint_every_steps: 500
+
+data:
+  name: cifar10
+  source: direct
+  data_dir: ./data
+  raw_data_dir: ./data
+  download_timeout_seconds: 900
+  download_urls:
+    - https://data.brainchip.com/dataset-mirror/cifar10/cifar-10-python.tar.gz
+    - https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
+    - http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
+  archive_md5: c58f30108f718f92721af3b95e74349a
+  hyperval_size: 5000
+  normalize: true
+  mean: [0.4914, 0.4822, 0.4465]
+  std: [0.2470, 0.2435, 0.2616]
+
+classifier:
+  backbone: preact_resnet18
+  num_classes: 10
+  width_multiplier: 1
+  batch_size: 128
+  epochs: 200
+  learning_rate: 0.1
+  lr_schedule: cosine
+  min_learning_rate: 0.0
+  lr_decay_epochs: [100, 150]
+  lr_decay_rate: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0005
+  cutout_size: 0
+
+pretrain:
+  batch_size: 128
+  steps: 2000
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  cutout_size: 0
+  image_loss_weight: 1.0
+  feature_loss_weight: 1.0
+  identity_l2_weight: 0.001
+
+augnet:
+  batch_size: 128
+  steps: 10000
+  learning_rate: 0.01
+  tau_dim: 128
+  tau_dropout: 0.5
+  damping: 0.01
+  cg_iters: 50
+  precompute_s_test: true
+  s_test_batches: 16
+  identity_l2_weight: 0.001
+
+retrain:
+  epochs: 200
+  learning_rate: 0.1
+  lr_schedule: cosine
+  min_learning_rate: 0.0
+  lr_decay_epochs: [100, 150]
+  lr_decay_rate: 0.1
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0005
+  cutout_size: 0
+  learned_aug_probability: 0.10
+  learned_aug_input: raw
