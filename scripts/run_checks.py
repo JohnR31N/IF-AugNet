@@ -23,12 +23,16 @@ from classification_network import (
     ClassifierTrainState,
     ImageNetResNet,
     MnistConvNet,
+    PreActResNet,
     PreActResNet18,
     PyramidNetShakeDrop,
     ShakeShakeResNet,
     WideResNet,
     classifier_eval_step,
+    classifier_train_step,
+    classifier_train_step_with_augnet,
     create_classifier_state,
+    extract_classifier_features,
 )
 from data import (
     NumpyBatchIterator,
@@ -42,9 +46,14 @@ from data import (
 )
 from data.cifar import file_md5
 from data.imagenet import _center_crop_numpy, _resize_short_side_for_eval
-from paramyield_network import compute_batch_s_test_residual
+from paramyield_network import (
+    augnet_influence_train_step,
+    compute_batch_s_test,
+    compute_batch_s_test_residual,
+)
 from paramyield_network.influence import (
     classifier_grad,
+    classifier_logits,
     classifier_loss,
     compute_s_test,
     influence_up_loss,
@@ -53,9 +62,13 @@ from paramyield_network.influence import (
 )
 from transformation_network import (
     CIFARAugmentationNetwork,
+    FeatureDiscriminator,
+    ImageDiscriminator,
+    augnet_pretrain_step,
     apply_spatial_transform,
     average_pool_same,
     create_augnet_state,
+    create_discriminator_state,
 )
 from classification_network.engine import _kernel_decay_mask
 from scripts.train_cifar10 import (
@@ -1273,6 +1286,234 @@ def _assert_influence_shapes() -> None:
     assert bool(jnp.all(jnp.isfinite(influence)))
 
 
+def _tree_l2_delta(before, after) -> float:
+    leaves = jax.tree_util.tree_leaves(
+        jax.tree_util.tree_map(lambda x, y: jnp.sum(jnp.square(y - x)), before, after)
+    )
+    return float(jnp.sqrt(sum(leaves)))
+
+
+def _assert_last_layer_grad_values() -> None:
+    features = jnp.asarray(
+        [
+            [1.0, 2.0],
+            [-1.0, 0.5],
+        ],
+        dtype=jnp.float32,
+    )
+    labels = jnp.asarray([0, 1], dtype=jnp.int32)
+    classifier_params = {
+        "kernel": jnp.asarray(
+            [
+                [0.2, -0.1],
+                [0.0, 0.3],
+            ],
+            dtype=jnp.float32,
+        ),
+        "bias": jnp.asarray([0.05, -0.02], dtype=jnp.float32),
+    }
+    logits = classifier_logits(features, classifier_params)
+    residual = jax.nn.softmax(logits, axis=-1) - jax.nn.one_hot(labels, 2)
+    expected_kernel = jnp.einsum("bd,bc->bdc", features, residual)
+    grads = last_layer_grad_per_example(features, labels, classifier_params)
+    np.testing.assert_allclose(np.asarray(grads["kernel"]), np.asarray(expected_kernel), rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(np.asarray(grads["bias"]), np.asarray(residual), rtol=1e-6, atol=1e-6)
+
+
+def _assert_classifier_to_augnet_tiny_pipeline() -> None:
+    rng = jax.random.PRNGKey(123)
+    images = jnp.linspace(0.0, 1.0, 4 * 32 * 32 * 3, dtype=jnp.float32).reshape(4, 32, 32, 3)
+    labels = jnp.asarray([0, 1, 2, 3], dtype=jnp.int32)
+    val_images = jnp.flip(images, axis=0)
+    val_labels = jnp.asarray([3, 2, 1, 0], dtype=jnp.int32)
+    train_batch = {"image": images, "label": labels}
+    val_batch = {"image": val_images, "label": val_labels}
+
+    classifier = PreActResNet(
+        stage_sizes=(1, 1, 1, 1),
+        widths=(8, 16, 32, 64),
+        num_classes=4,
+    )
+    classifier_state = create_classifier_state(
+        rng,
+        classifier,
+        input_shape=(1, 32, 32, 3),
+        learning_rate=0.01,
+        optimizer="sgd",
+        momentum=0.9,
+        weight_decay=0.0,
+    )
+    before_classifier_params = classifier_state.params
+    classifier_state, train_metrics = classifier_train_step(
+        classifier_state,
+        classifier,
+        train_batch,
+        jax.random.PRNGKey(1),
+        apply_baseline_augmentation=False,
+        cutout_size=0,
+    )
+    assert _tree_l2_delta(before_classifier_params, classifier_state.params) > 0.0
+    for value in train_metrics.values():
+        assert bool(jnp.all(jnp.isfinite(value)))
+
+    eval_metrics = classifier_eval_step(classifier_state, classifier, val_batch)
+    for value in eval_metrics.values():
+        assert bool(jnp.all(jnp.isfinite(value)))
+    features, logits = extract_classifier_features(classifier_state, classifier, images)
+    assert features.shape == (4, 64)
+    assert logits.shape == (4, 4)
+    assert classifier_state.params["classifier"]["kernel"].shape == (64, 4)
+
+    s_test = compute_batch_s_test(
+        classifier_state,
+        classifier,
+        train_batch,
+        val_batch,
+        damping=0.05,
+        cg_iters=20,
+    )
+    residual = compute_batch_s_test_residual(
+        classifier_state,
+        classifier,
+        train_batch,
+        val_batch,
+        s_test,
+        damping=0.05,
+    )
+    assert float(residual) < 0.25
+
+    augnet = CIFARAugmentationNetwork(
+        image_size=32,
+        channels=3,
+        tau_dim=8,
+        tau_dropout=0.0,
+        spatial_scale=0.05,
+        appearance_scale=0.05,
+        encoder_widths=(4, 8),
+        decoder_widths=(8,),
+        decoder_base_width=8,
+    )
+    aug_state = create_augnet_state(
+        jax.random.PRNGKey(2),
+        augnet,
+        input_shape=(1, 32, 32, 3),
+        learning_rate=1e-3,
+        gradient_clip_norm=1.0,
+    )
+    image_discriminator = ImageDiscriminator(widths=(4, 8))
+    feature_discriminator = FeatureDiscriminator()
+    image_d_state = create_discriminator_state(
+        jax.random.PRNGKey(3),
+        image_discriminator,
+        input_shape=(1, 32, 32, 3),
+        learning_rate=1e-3,
+    )
+    feature_d_state = create_discriminator_state(
+        jax.random.PRNGKey(4),
+        feature_discriminator,
+        input_shape=(1, 64),
+        learning_rate=1e-3,
+    )
+
+    before_pretrain_params = aug_state.params
+    aug_state, image_d_state, feature_d_state, pretrain_metrics = augnet_pretrain_step(
+        aug_state,
+        augnet,
+        image_d_state,
+        image_discriminator,
+        feature_d_state,
+        feature_discriminator,
+        classifier_state,
+        classifier,
+        train_batch,
+        jax.random.PRNGKey(5),
+        apply_baseline_augmentation=False,
+        cutout_size=0,
+        image_loss_weight=1.0,
+        feature_loss_weight=1.0,
+        identity_l2_weight=1e-3,
+    )
+    assert _tree_l2_delta(before_pretrain_params, aug_state.params) > 0.0
+    for value in pretrain_metrics.values():
+        assert bool(jnp.all(jnp.isfinite(value)))
+
+    before_influence_params = aug_state.params
+    aug_state, influence_metrics = augnet_influence_train_step(
+        aug_state,
+        augnet,
+        classifier_state,
+        classifier,
+        train_batch,
+        s_test,
+        jax.random.PRNGKey(6),
+        identity_l2_weight=1e-3,
+        influence_clip_value=10.0,
+        label_preservation_weight=0.1,
+    )
+    assert _tree_l2_delta(before_influence_params, aug_state.params) > 0.0
+    np.testing.assert_allclose(
+        float(influence_metrics["estimated_val_loss_reduction"]),
+        -float(influence_metrics["i_aug_loss"]),
+        rtol=1e-6,
+        atol=1e-6,
+    )
+    assert 0.0 <= float(influence_metrics["accuracy_on_augmented"]) <= 1.0
+    for value in influence_metrics.values():
+        assert bool(jnp.all(jnp.isfinite(value)))
+
+    retrain_state = create_classifier_state(
+        jax.random.PRNGKey(7),
+        classifier,
+        input_shape=(1, 32, 32, 3),
+        learning_rate=0.01,
+        optimizer="sgd",
+        momentum=0.9,
+        weight_decay=0.0,
+    )
+    _, retrain_metrics_zero = classifier_train_step_with_augnet(
+        retrain_state,
+        classifier,
+        aug_state,
+        augnet,
+        train_batch,
+        jax.random.PRNGKey(8),
+        apply_baseline_augmentation=False,
+        cutout_size=0,
+        learned_aug_probability=0.0,
+        learned_aug_input="baseline",
+    )
+    _, retrain_metrics_one = classifier_train_step_with_augnet(
+        retrain_state,
+        classifier,
+        aug_state,
+        augnet,
+        train_batch,
+        jax.random.PRNGKey(9),
+        apply_baseline_augmentation=False,
+        cutout_size=0,
+        learned_aug_probability=1.0,
+        learned_aug_input="baseline",
+    )
+    _, retrain_metrics_raw = classifier_train_step_with_augnet(
+        retrain_state,
+        classifier,
+        aug_state,
+        augnet,
+        train_batch,
+        jax.random.PRNGKey(10),
+        apply_baseline_augmentation=False,
+        cutout_size=0,
+        learned_aug_probability=1.0,
+        learned_aug_input="raw",
+    )
+    assert float(retrain_metrics_zero["learned_aug_fraction"]) == 0.0
+    assert float(retrain_metrics_one["learned_aug_fraction"]) == 1.0
+    assert float(retrain_metrics_raw["learned_aug_fraction"]) == 1.0
+    for metrics in (retrain_metrics_zero, retrain_metrics_one, retrain_metrics_raw):
+        for value in metrics.values():
+            assert bool(jnp.all(jnp.isfinite(value)))
+
+
 def _is_tpu_backend() -> bool:
     """Return whether the current JAX process is running on a TPU backend."""
     return any(device.platform == "tpu" for device in jax.devices())
@@ -1404,6 +1645,8 @@ def main() -> None:
         ("shake_shake_interface", _assert_shake_shake_interface),
         ("pyramidnet_shakedrop_interface", _assert_pyramidnet_shakedrop_interface),
         ("influence_shapes", _assert_influence_shapes),
+        ("last_layer_grad_values", _assert_last_layer_grad_values),
+        ("classifier_to_augnet_tiny_pipeline", _assert_classifier_to_augnet_tiny_pipeline),
         ("s_test_matches_dense_solve", _assert_s_test_matches_dense_solve),
     ]
     for name, check in checks:
