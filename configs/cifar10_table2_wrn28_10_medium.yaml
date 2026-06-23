@@ -1,7 +1,7 @@
 seed: 0
 log_every: 100
 eval_batches: 79
-checkpoint_dir: runs/cifar10_table2_wrn28_10_conservative
+checkpoint_dir: runs/cifar10_table2_wrn28_10_medium
 checkpoint_every_steps: 500
 
 data:
@@ -43,25 +43,25 @@ pretrain:
   cutout_size: 16
   image_loss_weight: 1.0
   feature_loss_weight: 1.0
-  identity_l2_weight: 0.005
+  identity_l2_weight: 0.003
 
 augnet:
   batch_size: 128
   steps: 10000
-  learning_rate: 0.003
+  learning_rate: 0.005
   adam_beta1: 0.9
   adam_beta2: 0.99
   tau_dim: 128
   tau_dropout: 0.5
-  spatial_scale: 0.08
-  appearance_scale: 0.08
+  spatial_scale: 0.12
+  appearance_scale: 0.12
   damping: 0.01
   cg_iters: 50
   precompute_s_test: true
   s_test_batches: 16
-  identity_l2_weight: 0.01
-  influence_clip_value: 5.0
-  label_preservation_weight: 0.2
+  identity_l2_weight: 0.005
+  influence_clip_value: 10.0
+  label_preservation_weight: 0.05
 
 retrain:
   epochs: 200
