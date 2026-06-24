@@ -88,6 +88,7 @@ from scripts.compare_to_paper import (
 )
 from scripts.preflight import preflight_configs
 from scripts.run_paper_suite import command_for_run, materialize_suite_configs
+from scripts.sweep_retrain_probability import _probability_label, _summarize_results
 from scripts.suite_status import collect_suite_status, summarize as summarize_suite_status
 from utils import load_config, restore_state, save_state, validate_config
 
@@ -579,6 +580,110 @@ def _assert_collect_results() -> None:
         assert "--output-dir expects a directory" in str(exc)
     else:
         raise AssertionError("collect_results accepted a file-like --output-dir path.")
+
+
+def _assert_retrain_probability_sweep_summary() -> None:
+    assert _probability_label(0.03) == "p003"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        base_a = tmp_path / "base_seed0.yaml"
+        base_b = tmp_path / "base_seed1.yaml"
+        base_a.write_text(
+            yaml.safe_dump({"retrain": {"learned_aug_probability": 0.10, "learned_aug_input": "baseline"}}),
+            encoding="utf-8",
+        )
+        base_b.write_text(
+            yaml.safe_dump({"retrain": {"learned_aug_probability": 0.10, "learned_aug_input": "baseline"}}),
+            encoding="utf-8",
+        )
+        cfg_a = tmp_path / "seed0_p003.yaml"
+        cfg_b = tmp_path / "seed1_p003.yaml"
+        cfg_c = tmp_path / "seed0_p001.yaml"
+        cfg_d = tmp_path / "seed0_p007.yaml"
+        cfg_a.write_text(
+            yaml.safe_dump(
+                {
+                    "_sweep": {"base_config": str(base_a)},
+                    "retrain": {"learned_aug_probability": 0.03, "learned_aug_input": "raw"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        cfg_b.write_text(
+            yaml.safe_dump(
+                {
+                    "_sweep": {"base_config": str(base_b)},
+                    "retrain": {"learned_aug_probability": 0.03, "learned_aug_input": "raw"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        cfg_c.write_text(
+            yaml.safe_dump({"retrain": {"learned_aug_probability": 0.01}}),
+            encoding="utf-8",
+        )
+        cfg_d.write_text(
+            yaml.safe_dump({"retrain": {"learned_aug_probability": 0.07}}),
+            encoding="utf-8",
+        )
+        results_dir = tmp_path / "results"
+        results_dir.mkdir()
+        (results_dir / "results_table.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "config": str(cfg_a),
+                        "status": "ok",
+                        "baseline_error": 5.0,
+                        "augnet_error": 4.8,
+                        "error_reduction": 0.2,
+                    },
+                    {
+                        "config": str(cfg_b),
+                        "status": "ok",
+                        "baseline_error": 5.2,
+                        "augnet_error": 5.1,
+                        "error_reduction": 0.1,
+                    },
+                    {
+                        "config": str(cfg_c),
+                        "status": "ok",
+                        "baseline_error": 5.0,
+                        "augnet_error": 5.3,
+                        "error_reduction": -0.3,
+                    },
+                    {
+                        "config": str(cfg_d),
+                        "status": "missing_final_eval",
+                        "baseline_error": 5.0,
+                        "augnet_error": 4.0,
+                        "error_reduction": 1.0,
+                    },
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        _summarize_results(results_dir / "results_table.json", tmp_path)
+        summary = json.loads((tmp_path / "summary_by_probability.json").read_text(encoding="utf-8"))
+        by_probability = {row["probability"]: row for row in summary}
+        assert by_probability[0.01]["beats_baseline"] is False
+        assert by_probability[0.03]["beats_baseline"] is True
+        assert by_probability[0.03]["ok_runs"] == 2
+        np.testing.assert_allclose(by_probability[0.03]["error_reduction_mean"], 0.15)
+        assert (tmp_path / "summary_by_probability.md").exists()
+        best = json.loads((tmp_path / "best_probability.json").read_text(encoding="utf-8"))
+        assert best["probability"] == 0.03
+        assert best["beats_baseline"] is True
+        assert best["ok_runs"] == best["runs"]
+        assert (tmp_path / "best_probability.md").exists()
+        apply_script = tmp_path / "apply_best_probability.py"
+        assert apply_script.exists()
+        subprocess.run([sys.executable, str(apply_script)], check=True)
+        for base_path in (base_a, base_b):
+            updated = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+            assert updated["retrain"]["learned_aug_probability"] == 0.03
+            assert updated["retrain"]["learned_aug_input"] == "raw"
 
 
 def _assert_compare_to_paper() -> None:
@@ -1627,6 +1732,7 @@ def main() -> None:
         ("config_validation", _assert_config_validation),
         ("all_configs_validate", _assert_all_configs_validate),
         ("collect_results", _assert_collect_results),
+        ("retrain_probability_sweep_summary", _assert_retrain_probability_sweep_summary),
         ("compare_to_paper", _assert_compare_to_paper),
         ("paper_suite", _assert_paper_suite),
         ("suite_status", _assert_suite_status),
